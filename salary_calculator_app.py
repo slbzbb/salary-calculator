@@ -1,46 +1,79 @@
-import streamlit as st
+def to_decimal_time(hour, minute):
+    return hour + minute / 60
 
-st.set_page_config(page_title="打工工资计算器", page_icon="💼")
+def parse_time_input(prompt):
+    try:
+        time_str = input(prompt).strip()
+        if time_str.upper() == "NO":
+            return "NO", "NO"
+        h, m = map(int, time_str.split(":"))
+        return h, m
+    except:
+        print("❌ 输入格式错误，请用 HH:MM 形式，例如 18:30，或输入 NO 跳过")
+        return parse_time_input(prompt)
 
-st.title("💼 打工工资计算器（含姓名 + 分钟输入 + 深夜加成）")
-name = st.text_input("请输入打工者姓名：")
+def calculate_pay(start_h, start_m, end_h, end_m,
+                  rest_h, rest_m,
+                  hourly_wage, bonus_count, bonus_per_item=500):
+    start = to_decimal_time(start_h, start_m)
+    end = to_decimal_time(end_h, end_m)
+    if end <= start:
+        end += 24
 
-wage = st.number_input("普通时段每小时工资（日元）", min_value=0.0, step=50.0, value=1200.0)
+    rest = to_decimal_time(rest_h, rest_m)
 
-days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-total_normal = 0
-total_late = 0
-total_pay = 0
+    normal_hours = max(0, min(end, 22.0) - start)
+    late_hours = max(0, end - max(start, 22.0))
+    total_hours = (end - start) - rest
 
-st.markdown("### 每天上班时间（支持分钟输入，例如 21.5 表示 21:30）")
-for day in days:
-    with st.expander(f"{day}"):
-        start = st.number_input(f"{day} 开始时间", min_value=-1.0, max_value=23.99, value=-1.0, key=f"{day}_start")
-        end = st.number_input(f"{day} 结束时间", min_value=0.0, max_value=23.99, value=0.0, key=f"{day}_end")
+    normal_pay = normal_hours * hourly_wage
+    late_pay = late_hours * 1500
+    bonus = bonus_count * bonus_per_item
+    total_pay = normal_pay + late_pay + bonus
 
-        if start == -1.0:
-            st.info(f"{day} 未上班")
+    return round(normal_hours, 2), round(late_hours, 2), round(total_hours, 2), bonus, round(total_pay, 2)
+
+def run_calculator():
+    print("💼 打工工资计算器（支持 NO / 姓名 / HH:MM 格式）")
+    name = input("请输入🐂🐎的姓名：")
+    hourly_wage = float(input("请输入普通时薪（日元）："))
+    bonus_per_item = 500
+
+    total_normal = total_late = total_hours = total_bonus = total_pay = 0
+
+    for day in range(1, 32):
+        print(f"\n📅 {day}日（如未打工，输入 NO）")
+
+        start_h, start_m = parse_time_input("上班时间（HH:MM 或 NO）：")
+        if start_h == "NO":
+            print("今天未打工，已跳过。")
             continue
 
-        if end <= start:
-            end += 24.0
+        end_h, end_m = parse_time_input("下班时间（HH:MM）：")
+        rest_h, rest_m = parse_time_input("休息时间总长（HH:MM）：")
+        bonus_count = int(input("今天卖出牛排几份？："))
 
-        normal = max(0, min(end, 22.0) - start)
-        late = max(0, end - max(start, 22.0))
+        normal, late, total, bonus, pay = calculate_pay(
+            start_h, start_m, end_h, end_m,
+            rest_h, rest_m,
+            hourly_wage, bonus_count, bonus_per_item
+        )
 
-        pay = normal * wage + late * 1500
         total_normal += normal
         total_late += late
+        total_hours += total
+        total_bonus += bonus
         total_pay += pay
 
-        st.write(f"普通时间：{normal:.2f} 小时 | 深夜时间：{late:.2f} 小时")
-        st.write(f"当天工资：{pay:.2f} 日元")
+        print(f"普通时间：{normal} h，深夜时间：{late} h，总工时：{total} h")
+        print(f"🍖 奖金：¥{bonus}，💰 当天工资：¥{pay}")
 
-total_hours = total_normal + total_late
+    print(f"\n===== 📊 {name} 的工资汇总 =====")
+    print(f"普通时段总工时：{total_normal} 小时")
+    print(f"深夜时段总工时：{total_late} 小时")
+    print(f"总工时（已扣休息）：{total_hours} 小时")
+    print(f"奖金总额：¥{total_bonus}")
+    print(f"工资总额：¥{total_pay}")
 
-st.markdown("---")
-st.subheader(f"📊 {name} 的本周汇总")
-st.write(f"⏰ 普通工时：{total_normal:.2f} 小时")
-st.write(f"🌙 深夜工时：{total_late:.2f} 小时")
-st.write(f"🕒 总工时：{total_hours:.2f} 小时")
-st.write(f"💰 总工资：{total_pay:.2f} 日元")
+# 程序入口
+run_calculator()
